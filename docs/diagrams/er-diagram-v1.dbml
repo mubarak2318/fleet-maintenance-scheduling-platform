@@ -1,0 +1,72 @@
+Table users {
+  id bigint [pk, increment]
+  name varchar(100) [not null]
+  email varchar(255) [not null, unique]
+  password_hash varchar(255) [not null]
+  role varchar(30) [not null]
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table vehicles {
+  id bigint [pk, increment]
+  registration_number varchar(50) [not null, unique]
+  vehicle_type varchar(50) [not null]
+  make varchar(100) [not null]
+  model varchar(100) [not null]
+  manufacture_year int
+  current_status varchar(30) [not null]
+  odometer_reading int [not null, default: 0]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table service_providers {
+  id bigint [pk, increment]
+  name varchar(150) [not null]
+  contact_person varchar(100)
+  phone varchar(20)
+  email varchar(255)
+  address text
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null]
+}
+
+Table maintenance_schedules {
+  id bigint [pk, increment]
+  vehicle_id bigint [not null]
+  assigned_to bigint [not null]
+  service_provider_id bigint
+  maintenance_type varchar(100) [not null]
+  description text
+  scheduled_date date [not null]
+  priority varchar(20) [not null]
+  status varchar(30) [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table maintenance_records {
+  id bigint [pk, increment]
+  schedule_id bigint [not null, unique]
+  vehicle_id bigint [not null]
+  service_provider_id bigint
+  performed_by bigint [not null]
+  service_date date [not null]
+  work_description text [not null]
+  parts_replaced text
+  cost decimal(10,2)
+  odometer_reading int
+  remarks text
+  created_at timestamp [not null]
+}
+
+Ref: maintenance_schedules.vehicle_id > vehicles.id
+Ref: maintenance_schedules.assigned_to > users.id
+Ref: maintenance_schedules.service_provider_id > service_providers.id
+
+Ref: maintenance_records.schedule_id - maintenance_schedules.id
+Ref: maintenance_records.vehicle_id > vehicles.id
+Ref: maintenance_records.service_provider_id > service_providers.id
+Ref: maintenance_records.performed_by > users.id
