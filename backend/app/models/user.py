@@ -1,7 +1,5 @@
-from datetime import datetime
-
-from sqlalchemy import BigInteger, Boolean, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 
@@ -9,26 +7,45 @@ from app.core.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[str] = mapped_column(String(30), nullable=False)
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, 
+    id = Column(Integer, primary_key=True, index=True)
+
+    name = Column(
+        String(100),
+        nullable=False,
+    )
+
+    email = Column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    password_hash = Column(
+        String(255),
+        nullable=False,
+    )
+
+    role = Column(
+        String(50),
+        nullable=False,
+        default="user",
+    )
+
+    is_active = Column(
+        Boolean,
         nullable=False,
         default=True,
-        server_default="true",
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
+    # Maintenance schedules assigned to this user
     assigned_schedules = relationship(
         "MaintenanceSchedule",
         back_populates="assigned_user",
         foreign_keys="MaintenanceSchedule.assigned_to",
     )
 
+    # Maintenance records performed by this user
     performed_records = relationship(
         "MaintenanceRecord",
         back_populates="performed_by_user",
