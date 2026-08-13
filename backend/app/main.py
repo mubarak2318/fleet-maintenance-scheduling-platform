@@ -1,8 +1,13 @@
 from fastapi import FastAPI
 
+from app.api.routes.service_provider import router as service_provider_router
 from app.api.routes.vehicle import router as vehicle_router
-
-
+from app.api.routes.maintenance_schedule import (
+    router as maintenance_schedule_router,
+)
+from app.api.routes.maintenance_record import (
+    router as maintenance_record_router,
+)
 app = FastAPI(
     title="Fleet Maintenance Scheduling Platform",
     version="0.1.0",
@@ -11,6 +16,9 @@ app = FastAPI(
 
 
 app.include_router(vehicle_router)
+app.include_router(service_provider_router)
+app.include_router(maintenance_schedule_router)
+app.include_router(maintenance_record_router)
 
 
 @app.get("/health")
