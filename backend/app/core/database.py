@@ -4,12 +4,15 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from app.core.config import settings
 
 
-DATABASE_URL = (
-    f"postgresql+psycopg://"
-    f"{settings.postgres_user}:{settings.postgres_password}"
-    f"@{settings.postgres_host}:{settings.postgres_port}"
-    f"/{settings.postgres_db}"
-)
+if settings.database_url:
+    DATABASE_URL = settings.database_url
+else:
+    DATABASE_URL = (
+        f"postgresql+psycopg://"
+        f"{settings.postgres_user}:{settings.postgres_password}"
+        f"@{settings.postgres_host}:{settings.postgres_port}"
+        f"/{settings.postgres_db}"
+    )
 
 
 engine = create_engine(
