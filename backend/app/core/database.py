@@ -6,6 +6,13 @@ from app.core.config import settings
 
 if settings.database_url:
     DATABASE_URL = settings.database_url
+
+    if DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = DATABASE_URL.replace(
+            "postgresql://",
+            "postgresql+psycopg://",
+            1,
+        )
 else:
     DATABASE_URL = (
         f"postgresql+psycopg://"
