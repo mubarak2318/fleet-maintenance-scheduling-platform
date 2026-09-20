@@ -43,6 +43,19 @@ def get_maintenance_records(
 
 
 @router.get(
+    "/history/vehicle/{vehicle_id}",
+    response_model=list[MaintenanceRecordResponse],
+)
+def get_vehicle_maintenance_history(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+):
+    service = MaintenanceRecordService(db)
+
+    return service.get_vehicle_history(vehicle_id)
+
+
+@router.get(
     "/{record_id}",
     response_model=MaintenanceRecordResponse,
 )
