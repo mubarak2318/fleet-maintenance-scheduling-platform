@@ -9,6 +9,10 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://127.0.0.1:8000/api/v1";
+
 function Login({ onLogin, onRegister, onBack }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +30,7 @@ function Login({ onLogin, onRegister, onBack }) {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/v1/auth/login",
+        `${API_BASE_URL}/auth/login`,
         {
           method: "POST",
 
@@ -131,7 +135,6 @@ function Login({ onLogin, onRegister, onBack }) {
 
       </div>
 
-
       <div className="auth-right">
 
         <div className="auth-card">
@@ -148,13 +151,11 @@ function Login({ onLogin, onRegister, onBack }) {
 
           </div>
 
-
           {error && (
             <div className="auth-error">
               {error}
             </div>
           )}
-
 
           <form onSubmit={handleLogin}>
 
@@ -177,7 +178,6 @@ function Login({ onLogin, onRegister, onBack }) {
               />
 
             </div>
-
 
             <label>
               Password
@@ -217,7 +217,6 @@ function Login({ onLogin, onRegister, onBack }) {
 
             </div>
 
-
             <button
               type="submit"
               className="auth-submit"
@@ -235,7 +234,6 @@ function Login({ onLogin, onRegister, onBack }) {
             </button>
 
           </form>
-
 
           <div className="auth-switch">
 

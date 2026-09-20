@@ -10,6 +10,10 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://127.0.0.1:8000/api/v1";
+
 function Register({
   onRegister,
   onLogin,
@@ -58,7 +62,7 @@ function Register({
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/v1/auth/register",
+        `${API_BASE_URL}/auth/register`,
         {
           method: "POST",
 
@@ -134,7 +138,6 @@ function Register({
             and service operations efficiently.
           </p>
 
-
           <div className="register-benefits">
 
             <div>
@@ -158,7 +161,6 @@ function Register({
 
       </div>
 
-
       <div className="auth-right">
 
         <div className="auth-card">
@@ -175,13 +177,11 @@ function Register({
 
           </div>
 
-
           {error && (
             <div className="auth-error">
               {error}
             </div>
           )}
-
 
           <form onSubmit={handleRegister}>
 
@@ -205,7 +205,6 @@ function Register({
 
             </div>
 
-
             <label>
               Email address
             </label>
@@ -225,7 +224,6 @@ function Register({
               />
 
             </div>
-
 
             <label>
               Password
@@ -265,7 +263,6 @@ function Register({
 
             </div>
 
-
             <label>
               Confirm password
             </label>
@@ -292,7 +289,6 @@ function Register({
 
             </div>
 
-
             <button
               type="submit"
               className="auth-submit"
@@ -310,7 +306,6 @@ function Register({
             </button>
 
           </form>
-
 
           <div className="auth-switch">
 
