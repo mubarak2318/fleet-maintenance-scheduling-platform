@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   Truck,
-  Plus,
   Search,
-  ArrowUpRight,
+  Plus,
+  RefreshCw,
+  Pencil,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -11,32 +13,36 @@ const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
 
 function Vehicles() {
   const [vehicles, setVehicles] = useState([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [showForm, setShowForm] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState({
     registration_number: "",
-    vehicle_type: "Truck",
+    vehicle_type: "",
     make: "",
     model: "",
-    manufacture_year: new Date().getFullYear(),
-    current_status: "Active",
-    odometer_reading: 0,
+    manufacture_year: "",
+    current_status: "active",
+    odometer_reading: "",
   });
 
-  useEffect(() => {
-    loadVehicles();
-  }, []);
+  // ==============================
+  // LOAD VEHICLES
+  // ==============================
 
-  async function loadVehicles() {
+  const fetchVehicles = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await fetch(`${API_BASE_URL}/vehicles`);
+      const response = await fetch(
+        `${API_BASE_URL}/vehicles`
+      );
 
       if (!response.ok) {
         throw new Error("Failed to load vehicles");
@@ -44,515 +50,654 @@ function Vehicles() {
 
       const data = await response.json();
 
-      setVehicles(
-        Array.isArray(data)
-          ? data
-          : data.data || data.items || []
-      );
+      setVehicles(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Unable to load vehicles");
+      setError(
+        err.message || "Unable to load vehicles"
+      );
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  function handleChange(event) {
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
+
+  // ==============================
+  // FORM
+  // ==============================
+
+  const resetForm = () => {
+    setForm({
+      registration_number: "",
+      vehicle_type: "",
+      make: "",
+      model: "",
+      manufacture_year: "",
+      current_status: "active",
+      odometer_reading: "",
+    });
+
+    setEditingId(null);
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const openEditModal = (vehicle) => {
+    setEditingId(vehicle.id);
+
+    setForm({
+      registration_number:
+        vehicle.registration_number || "",
+      vehicle_type: vehicle.vehicle_type || "",
+      make: vehicle.make || "",
+      model: vehicle.model || "",
+      manufacture_year:
+        vehicle.manufacture_year || "",
+      current_status:
+        vehicle.current_status || "active",
+      odometer_reading:
+        vehicle.odometer_reading ?? "",
+    });
+
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    if (saving) return;
+
+    setShowModal(false);
+    resetForm();
+  };
+
+  const handleChange = (event) => {
     const { name, value } = event.target;
 
-    setFormData((previous) => ({
+    setForm((previous) => ({
       ...previous,
-      [name]:
-        name === "manufacture_year" || name === "odometer_reading"
-          ? Number(value)
-          : value,
+      [name]: value,
     }));
-  }
+  };
 
-  async function handleSubmit(event) {
+  // ==============================
+  // CREATE / UPDATE
+  // ==============================
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
-    try {
-      setError("");
+    if (!form.registration_number.trim()) {
+      alert("Registration number is required.");
+      return;
+    }
 
-      const response = await fetch(`${API_BASE_URL}/vehicles`, {
-        method: "POST",
+    try {
+      setSaving(true);
+
+      const url = editingId
+        ? `${API_BASE_URL}/vehicles/${editingId}`
+        : `${API_BASE_URL}/vehicles`;
+
+      const payload = {
+        registration_number:
+          form.registration_number.trim(),
+
+        vehicle_type:
+          form.vehicle_type.trim(),
+
+        make:
+          form.make.trim(),
+
+        model:
+          form.model.trim(),
+
+        manufacture_year: form.manufacture_year
+          ? Number(form.manufacture_year)
+          : null,
+
+        current_status:
+          form.current_status,
+
+        odometer_reading: form.odometer_reading
+          ? Number(form.odometer_reading)
+          : 0,
+      };
+
+      const response = await fetch(url, {
+        method: editingId ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      let result = null;
+
+      try {
+        result = await response.json();
+      } catch {
+        result = null;
+      }
 
       if (!response.ok) {
         throw new Error(
-          data.detail || "Failed to create vehicle"
+          result?.detail ||
+            "Unable to save vehicle."
         );
       }
 
-      setVehicles((previous) => [...previous, data]);
+      alert(
+        editingId
+          ? "Vehicle updated successfully."
+          : "Vehicle created successfully."
+      );
 
-      setFormData({
-        registration_number: "",
-        vehicle_type: "Truck",
-        make: "",
-        model: "",
-        manufacture_year: new Date().getFullYear(),
-        current_status: "Active",
-        odometer_reading: 0,
-      });
+      closeModal();
 
-      setShowForm(false);
+      await fetchVehicles();
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Unable to create vehicle");
+      alert(err.message);
+    } finally {
+      setSaving(false);
     }
-  }
+  };
 
-  const filteredVehicles = vehicles.filter((vehicle) => {
-    const search = searchTerm.toLowerCase();
+  // ==============================
+  // DELETE
+  // ==============================
 
-    return (
-      String(vehicle.registration_number || "")
-        .toLowerCase()
-        .includes(search) ||
-      String(vehicle.make || "")
-        .toLowerCase()
-        .includes(search) ||
-      String(vehicle.model || "")
-        .toLowerCase()
-        .includes(search) ||
-      String(vehicle.vehicle_type || "")
-        .toLowerCase()
-        .includes(search)
+  const handleDelete = async (vehicle) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete vehicle "${vehicle.registration_number}"?`
     );
-  });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/vehicles/${vehicle.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        let message = "Unable to delete vehicle.";
+
+        try {
+          const result = await response.json();
+          message = result?.detail || message;
+        } catch {
+          // DELETE may return 204
+        }
+
+        throw new Error(message);
+      }
+
+      alert("Vehicle deleted successfully.");
+
+      await fetchVehicles();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  // ==============================
+  // SEARCH
+  // ==============================
+
+  const filteredVehicles = vehicles.filter(
+    (vehicle) => {
+      const searchText = search.toLowerCase();
+
+      return `
+        ${vehicle.registration_number || ""}
+        ${vehicle.vehicle_type || ""}
+        ${vehicle.make || ""}
+        ${vehicle.model || ""}
+        ${vehicle.current_status || ""}
+      `
+        .toLowerCase()
+        .includes(searchText);
+    }
+  );
+
+  // ==============================
+  // UI
+  // ==============================
 
   return (
-    <div className="dashboard-page">
+    <div className="vehicles-page">
 
       {/* Header */}
+      <div className="page-header">
 
-      <div className="dashboard-header">
         <div>
-          <p className="dashboard-eyebrow">
+          <p className="page-eyebrow">
             FLEET MANAGEMENT
           </p>
 
           <h1>Vehicles</h1>
 
-          <p className="dashboard-description">
-            Manage your registered fleet and vehicle information.
+          <p>
+            Manage fleet vehicles and their current
+            operating status.
           </p>
         </div>
 
         <button
           className="dashboard-primary-button"
-          onClick={() => setShowForm(true)}
+          onClick={openAddModal}
         >
           <Plus size={18} />
           Add Vehicle
         </button>
+
       </div>
 
-      {/* Error */}
+      {/* Toolbar */}
+      <div className="providers-toolbar">
 
-      {error && (
-        <div
-          style={{
-            background: "#fff1f2",
-            color: "#be123c",
-            padding: "12px 16px",
-            borderRadius: "10px",
-            marginBottom: "20px",
-            border: "1px solid #fecdd3",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {/* Search */}
-
-      <div
-        className="dashboard-card"
-        style={{ marginBottom: "20px" }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-          }}
-        >
-          <Search size={20} />
+        <div className="search-box">
+          <Search size={18} />
 
           <input
             type="text"
             placeholder="Search vehicles..."
-            value={searchTerm}
-            onChange={(event) =>
-              setSearchTerm(event.target.value)
+            value={search}
+            onChange={(e) =>
+              setSearch(e.target.value)
             }
-            style={{
-              border: "none",
-              outline: "none",
-              width: "100%",
-              fontSize: "15px",
-              background: "transparent",
-            }}
           />
         </div>
+
+        <button
+          className="refresh-button"
+          onClick={fetchVehicles}
+          disabled={loading}
+        >
+          <RefreshCw size={17} />
+          Refresh
+        </button>
+
       </div>
 
-      {/* Vehicle Table */}
+      {/* Error */}
+      {error && (
+        <div className="provider-error">
+          <strong>
+            Unable to load vehicles
+          </strong>
 
-      <section className="dashboard-card">
-
-        <div className="card-header">
-          <div>
-            <h2>Registered Vehicles</h2>
-
-            <p>
-              {vehicles.length} vehicle
-              {vehicles.length !== 1 ? "s" : ""} in your fleet
-            </p>
-          </div>
+          <span>{error}</span>
         </div>
+      )}
 
-        <div className="maintenance-table">
+      {/* Loading */}
+      {loading ? (
+        <div className="provider-empty">
 
-          <div className="table-row table-header">
-            <span>Vehicle</span>
-            <span>Type</span>
-            <span>Year</span>
-            <span>Status</span>
-            <span>Odometer</span>
+          <RefreshCw
+            size={28}
+            className="loading-icon"
+          />
+
+          <h3>
+            Loading vehicles...
+          </h3>
+
+          <p>
+            Please wait while we fetch the latest
+            fleet data.
+          </p>
+
+        </div>
+      ) : filteredVehicles.length === 0 ? (
+        <div className="provider-empty">
+
+          <div className="empty-icon">
+            <Truck size={30} />
           </div>
 
-          {loading ? (
-            <div
-              className="table-row"
-              style={{ justifyContent: "center" }}
+          <h3>
+            {search
+              ? "No vehicles found"
+              : "No vehicles yet"}
+          </h3>
+
+          <p>
+            {search
+              ? "Try a different search term."
+              : "Add your first fleet vehicle to get started."}
+          </p>
+
+          {!search && (
+            <button
+              className="dashboard-primary-button"
+              onClick={openAddModal}
             >
-              Loading vehicles...
-            </div>
-          ) : filteredVehicles.length === 0 ? (
-            <div
-              style={{
-                padding: "40px",
-                textAlign: "center",
-                color: "#64748b",
-              }}
-            >
-              <Truck
-                size={40}
-                style={{
-                  marginBottom: "10px",
-                  opacity: 0.5,
-                }}
-              />
-
-              <p>No vehicles found.</p>
-            </div>
-          ) : (
-            filteredVehicles.map((vehicle) => (
-              <div
-                className="table-row"
-                key={vehicle.id}
-              >
-
-                {/* Vehicle */}
-
-                <div className="vehicle-info">
-                  <div className="vehicle-icon">
-                    <Truck size={18} />
-                  </div>
-
-                  <div>
-                    <strong>
-                      {vehicle.registration_number}
-                    </strong>
-
-                    <small>
-                      {vehicle.make} {vehicle.model}
-                    </small>
-                  </div>
-                </div>
-
-                {/* Type */}
-
-                <span>
-                  {vehicle.vehicle_type}
-                </span>
-
-                {/* Year */}
-
-                <span>
-                  {vehicle.manufacture_year}
-                </span>
-
-                {/* Status */}
-
-                <span>
-                  <span
-                    className={`priority ${
-                      String(
-                        vehicle.current_status || ""
-                      ).toLowerCase() === "active"
-                        ? "low"
-                        : "high"
-                    }`}
-                  >
-                    {vehicle.current_status}
-                  </span>
-                </span>
-
-                {/* Odometer */}
-
-                <span>
-                  {Number(
-                    vehicle.odometer_reading || 0
-                  ).toLocaleString()}{" "}
-                  km
-                </span>
-
-              </div>
-            ))
+              <Plus size={18} />
+              Add Vehicle
+            </button>
           )}
 
         </div>
+      ) : (
+        <div className="vehicle-grid">
 
-      </section>
-
-      {/* Add Vehicle Modal */}
-
-      {showForm && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15, 23, 42, 0.45)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-            padding: "20px",
-          }}
-        >
-
-          <div
-            className="dashboard-card"
-            style={{
-              width: "100%",
-              maxWidth: "600px",
-              maxHeight: "90vh",
-              overflowY: "auto",
-            }}
-          >
-
-            {/* Modal Header */}
+          {filteredVehicles.map((vehicle) => (
 
             <div
-              className="card-header"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-              }}
+              className="vehicle-card"
+              key={vehicle.id}
             >
-              <div>
-                <h2>Add Vehicle</h2>
 
-                <p>
-                  Register a new vehicle in your fleet.
+              <div className="vehicle-card-header">
+
+                <div className="provider-icon">
+                  <Truck size={22} />
+                </div>
+
+                <span
+                  className={`provider-status ${
+                    vehicle.current_status ===
+                    "inactive"
+                      ? "inactive"
+                      : "active"
+                  }`}
+                >
+                  {vehicle.current_status ||
+                    "active"}
+                </span>
+
+              </div>
+
+              <h2>
+                {vehicle.registration_number}
+              </h2>
+
+              <div className="vehicle-details">
+
+                <div>
+                  <strong>Type</strong>
+                  <span>
+                    {vehicle.vehicle_type || "-"}
+                  </span>
+                </div>
+
+                <div>
+                  <strong>Make</strong>
+                  <span>
+                    {vehicle.make || "-"}
+                  </span>
+                </div>
+
+                <div>
+                  <strong>Model</strong>
+                  <span>
+                    {vehicle.model || "-"}
+                  </span>
+                </div>
+
+                <div>
+                  <strong>Year</strong>
+                  <span>
+                    {vehicle.manufacture_year ||
+                      "-"}
+                  </span>
+                </div>
+
+                <div>
+                  <strong>Odometer</strong>
+                  <span>
+                    {vehicle.odometer_reading ??
+                      0}{" "}
+                    km
+                  </span>
+                </div>
+
+              </div>
+
+              {/* Actions */}
+              <div className="provider-card-actions">
+
+                <button
+                  className="edit-button"
+                  onClick={() =>
+                    openEditModal(vehicle)
+                  }
+                >
+                  <Pencil size={15} />
+                  Edit
+                </button>
+
+                <button
+                  className="delete-button"
+                  onClick={() =>
+                    handleDelete(vehicle)
+                  }
+                >
+                  <Trash2 size={15} />
+                  Delete
+                </button>
+
+              </div>
+
+              <div className="provider-card-footer">
+
+                <span>Vehicle ID</span>
+
+                <strong>
+                  #{vehicle.id}
+                </strong>
+
+              </div>
+
+            </div>
+
+          ))}
+
+        </div>
+      )}
+
+      {/* ============================== */}
+      {/* ADD / EDIT MODAL */}
+      {/* ============================== */}
+
+      {showModal && (
+        <div className="modal-overlay">
+
+          <div className="provider-modal">
+
+            <div className="modal-header">
+
+              <div>
+
+                <p className="page-eyebrow">
+                  {editingId
+                    ? "UPDATE VEHICLE"
+                    : "NEW VEHICLE"}
                 </p>
+
+                <h2>
+                  {editingId
+                    ? "Edit Vehicle"
+                    : "Add Vehicle"}
+                </h2>
+
               </div>
 
               <button
-                onClick={() => setShowForm(false)}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                }}
+                className="modal-close"
+                onClick={closeModal}
+                disabled={saving}
               >
-                <X size={22} />
+                <X size={20} />
               </button>
-            </div>
 
-            {/* Form */}
+            </div>
 
             <form onSubmit={handleSubmit}>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "repeat(2, 1fr)",
-                  gap: "16px",
-                  padding: "20px 0",
-                }}
-              >
+              {/* Registration */}
+              <div className="form-group">
 
-                {/* Registration */}
+                <label>
+                  Registration Number *
+                </label>
 
-                <div>
-                  <label>Registration Number</label>
+                <input
+                  type="text"
+                  name="registration_number"
+                  value={
+                    form.registration_number
+                  }
+                  onChange={handleChange}
+                  placeholder="Example: TN45AB1234"
+                  required
+                />
 
-                  <input
-                    name="registration_number"
-                    value={
-                      formData.registration_number
-                    }
-                    onChange={handleChange}
-                    placeholder="TN45AB1234"
-                    required
-                    style={inputStyle}
-                  />
-                </div>
+              </div>
 
-                {/* Vehicle Type */}
+              {/* Vehicle Type */}
+              <div className="form-group">
 
-                <div>
-                  <label>Vehicle Type</label>
+                <label>
+                  Vehicle Type
+                </label>
 
-                  <select
-                    name="vehicle_type"
-                    value={formData.vehicle_type}
-                    onChange={handleChange}
-                    style={inputStyle}
-                  >
-                    <option value="Truck">
-                      Truck
-                    </option>
+                <input
+                  type="text"
+                  name="vehicle_type"
+                  value={form.vehicle_type}
+                  onChange={handleChange}
+                  placeholder="Example: Truck"
+                />
 
-                    <option value="Van">
-                      Van
-                    </option>
+              </div>
 
-                    <option value="Bus">
-                      Bus
-                    </option>
+              {/* Make + Model */}
+              <div className="form-row">
 
-                    <option value="Car">
-                      Car
-                    </option>
-                  </select>
-                </div>
+                <div className="form-group">
 
-                {/* Make */}
-
-                <div>
                   <label>Make</label>
 
                   <input
+                    type="text"
                     name="make"
-                    value={formData.make}
+                    value={form.make}
                     onChange={handleChange}
-                    placeholder="Tata"
-                    required
-                    style={inputStyle}
+                    placeholder="Example: Tata"
                   />
+
                 </div>
 
-                {/* Model */}
+                <div className="form-group">
 
-                <div>
                   <label>Model</label>
 
                   <input
+                    type="text"
                     name="model"
-                    value={formData.model}
+                    value={form.model}
                     onChange={handleChange}
-                    placeholder="Prima"
-                    required
-                    style={inputStyle}
+                    placeholder="Example: Prima"
                   />
+
                 </div>
 
-                {/* Manufacture Year */}
+              </div>
 
-                <div>
-                  <label>Manufacture Year</label>
+              {/* Year + Odometer */}
+              <div className="form-row">
+
+                <div className="form-group">
+
+                  <label>
+                    Manufacture Year
+                  </label>
 
                   <input
                     type="number"
                     name="manufacture_year"
                     value={
-                      formData.manufacture_year
+                      form.manufacture_year
                     }
                     onChange={handleChange}
-                    required
-                    style={inputStyle}
+                    placeholder="2024"
+                    min="1900"
+                    max="2100"
                   />
+
                 </div>
 
-                {/* Status */}
+                <div className="form-group">
 
-                <div>
-                  <label>Current Status</label>
-
-                  <select
-                    name="current_status"
-                    value={
-                      formData.current_status
-                    }
-                    onChange={handleChange}
-                    style={inputStyle}
-                  >
-                    <option value="Active">
-                      Active
-                    </option>
-
-                    <option value="In Service">
-                      In Service
-                    </option>
-
-                    <option value="Inactive">
-                      Inactive
-                    </option>
-                  </select>
-                </div>
-
-                {/* Odometer */}
-
-                <div>
-                  <label>Odometer Reading</label>
+                  <label>
+                    Odometer Reading
+                  </label>
 
                   <input
                     type="number"
                     name="odometer_reading"
                     value={
-                      formData.odometer_reading
+                      form.odometer_reading
                     }
                     onChange={handleChange}
+                    placeholder="0"
                     min="0"
-                    style={inputStyle}
                   />
+
                 </div>
 
               </div>
 
-              {/* Buttons */}
+              {/* Status */}
+              <div className="form-group">
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "12px",
-                  borderTop:
-                    "1px solid #e2e8f0",
-                  paddingTop: "18px",
-                }}
-              >
+                <label>
+                  Current Status
+                </label>
+
+                <select
+                  name="current_status"
+                  value={form.current_status}
+                  onChange={handleChange}
+                >
+                  <option value="active">
+                    Active
+                  </option>
+
+                  <option value="in service">
+                    In Service
+                  </option>
+
+                  <option value="inactive">
+                    Inactive
+                  </option>
+
+                  <option value="retired">
+                    Retired
+                  </option>
+                </select>
+
+              </div>
+
+              {/* Actions */}
+              <div className="modal-actions">
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setShowForm(false)
-                  }
-                  style={secondaryButtonStyle}
+                  className="secondary-button"
+                  onClick={closeModal}
+                  disabled={saving}
                 >
                   Cancel
                 </button>
@@ -560,9 +705,13 @@ function Vehicles() {
                 <button
                   type="submit"
                   className="dashboard-primary-button"
+                  disabled={saving}
                 >
-                  <Plus size={18} />
-                  Add Vehicle
+                  {saving
+                    ? "Saving..."
+                    : editingId
+                    ? "Update Vehicle"
+                    : "Create Vehicle"}
                 </button>
 
               </div>
@@ -570,30 +719,12 @@ function Vehicles() {
             </form>
 
           </div>
+
         </div>
       )}
+
     </div>
   );
 }
-
-const inputStyle = {
-  width: "100%",
-  padding: "11px 12px",
-  marginTop: "6px",
-  border: "1px solid #cbd5e1",
-  borderRadius: "8px",
-  outline: "none",
-  fontSize: "14px",
-  boxSizing: "border-box",
-};
-
-const secondaryButtonStyle = {
-  padding: "11px 18px",
-  border: "1px solid #cbd5e1",
-  borderRadius: "8px",
-  background: "#ffffff",
-  cursor: "pointer",
-  fontWeight: "600",
-};
 
 export default Vehicles;
