@@ -24,3 +24,7 @@ build/
 # Test/cache
 .pytest_cache/
 .coverage
+
+# Frontend environment files
+frontend/.env
+frontend/.env.local
