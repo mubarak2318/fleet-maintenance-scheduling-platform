@@ -127,6 +127,35 @@ class MaintenanceRecordService:
 
         return record
 
+    def get_vehicle_history(self, vehicle_id: int):
+        from app.models.vehicle import Vehicle
+
+        vehicle = (
+            self.db.query(Vehicle)
+            .filter(Vehicle.id == vehicle_id)
+            .first()
+        )
+
+        if vehicle is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Vehicle not found.",
+            )
+
+        records = (
+            self.db.query(MaintenanceRecord)
+            .filter(
+                MaintenanceRecord.vehicle_id == vehicle_id
+            )
+            .order_by(
+                MaintenanceRecord.service_date.desc(),
+                MaintenanceRecord.id.desc(),
+            )
+            .all()
+        )
+
+        return records
+
     def update_record(
         self,
         record_id: int,
