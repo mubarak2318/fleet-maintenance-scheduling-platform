@@ -3250,3 +3250,178 @@ a {
     max-height: 95vh;
   }
 }
+/* =========================================================
+   DASHBOARD MAINTENANCE STATUS
+========================================================= */
+
+.maintenance-status-summary {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.status-summary-item {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border-top: 1px solid #e8edf3;
+}
+
+.status-summary-item:first-child {
+  border-top: none;
+}
+
+.status-summary-item > div:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-summary-item strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #102a43;
+}
+
+.status-summary-item span {
+  font-size: 13px;
+  color: #7b8da1;
+}
+
+.status-summary-item > b {
+  font-size: 20px;
+  font-weight: 700;
+  color: #102a43;
+  min-width: 30px;
+  text-align: right;
+}
+
+.status-summary-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-summary-icon.upcoming {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.status-summary-icon.due {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.status-summary-icon.overdue {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+
+/* =========================================================
+   MAINTENANCE STATUS BADGES
+========================================================= */
+
+.maintenance-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-width: 78px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.maintenance-status.upcoming {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.maintenance-status.due {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.maintenance-status.overdue {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+
+/* =========================================================
+   DASHBOARD MAINTENANCE TABLE
+========================================================= */
+
+.maintenance-card {
+  overflow: hidden;
+}
+
+.maintenance-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.maintenance-table .table-row {
+  min-width: 760px;
+}
+
+.maintenance-table .table-header {
+  font-weight: 700;
+  color: #64748b;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.maintenance-table .table-row > span {
+  display: flex;
+  align-items: center;
+}
+
+
+/* =========================================================
+   RESPONSIVE DASHBOARD
+========================================================= */
+
+@media (max-width: 900px) {
+
+  .status-summary-item {
+    padding: 16px;
+  }
+
+}
+
+@media (max-width: 600px) {
+
+  .status-summary-item {
+    grid-template-columns: 38px 1fr auto;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .status-summary-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .status-summary-item strong {
+    font-size: 13px;
+  }
+
+  .status-summary-item span {
+    font-size: 12px;
+  }
+
+  .status-summary-item > b {
+    font-size: 18px;
+  }
+
+}

@@ -4,9 +4,10 @@ import {
   CalendarCheck,
   Building2,
   ArrowUpRight,
-  Plus,
   Wrench,
   AlertTriangle,
+  ClipboardList,
+  Clock,
 } from "lucide-react";
 
 const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
@@ -15,6 +16,7 @@ function Dashboard() {
   const [vehicles, setVehicles] = useState([]);
   const [providers, setProviders] = useState([]);
   const [schedules, setSchedules] = useState([]);
+  const [records, setRecords] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -28,12 +30,17 @@ function Dashboard() {
       setLoading(true);
       setError("");
 
-      const [vehiclesResponse, providersResponse, schedulesResponse] =
-        await Promise.all([
-          fetch(`${API_BASE_URL}/vehicles`),
-          fetch(`${API_BASE_URL}/service-providers`),
-          fetch(`${API_BASE_URL}/maintenance-schedules`),
-        ]);
+      const [
+        vehiclesResponse,
+        providersResponse,
+        schedulesResponse,
+        recordsResponse,
+      ] = await Promise.all([
+        fetch(`${API_BASE_URL}/vehicles`),
+        fetch(`${API_BASE_URL}/service-providers`),
+        fetch(`${API_BASE_URL}/maintenance-schedules`),
+        fetch(`${API_BASE_URL}/maintenance-records`),
+      ]);
 
       if (!vehiclesResponse.ok) {
         throw new Error("Failed to load vehicles");
@@ -47,9 +54,14 @@ function Dashboard() {
         throw new Error("Failed to load maintenance schedules");
       }
 
+      if (!recordsResponse.ok) {
+        throw new Error("Failed to load maintenance records");
+      }
+
       const vehiclesData = await vehiclesResponse.json();
       const providersData = await providersResponse.json();
       const schedulesData = await schedulesResponse.json();
+      const recordsData = await recordsResponse.json();
 
       setVehicles(
         Array.isArray(vehiclesData)
@@ -68,6 +80,12 @@ function Dashboard() {
           ? schedulesData
           : schedulesData.data || schedulesData.items || []
       );
+
+      setRecords(
+        Array.isArray(recordsData)
+          ? recordsData
+          : recordsData.data || recordsData.items || []
+      );
     } catch (err) {
       console.error("Dashboard API error:", err);
       setError(err.message || "Unable to load dashboard data");
@@ -76,9 +94,7 @@ function Dashboard() {
     }
   }
 
-  /* -----------------------------
-     Vehicle statistics
-  ----------------------------- */
+  /* ================= VEHICLE STATISTICS ================= */
 
   const totalVehicles = vehicles.length;
 
@@ -98,49 +114,24 @@ function Dashboard() {
     return status === "inactive" || status === "retired";
   }).length;
 
-  /* -----------------------------
-     Maintenance statistics
-  ----------------------------- */
+  /* ================= MAINTENANCE STATISTICS ================= */
 
-  const scheduledMaintenance = schedules.filter(
+  const upcomingMaintenance = schedules.filter(
     (schedule) =>
-      String(schedule.status || "").toLowerCase() === "scheduled"
-  ).length;
+      String(schedule.status || "").toUpperCase() === "UPCOMING"
+  );
 
-  /* -----------------------------
-     Dashboard cards
-  ----------------------------- */
+  const dueMaintenance = schedules.filter(
+    (schedule) =>
+      String(schedule.status || "").toUpperCase() === "DUE"
+  );
 
-  const stats = [
-    {
-      title: "Total Vehicles",
-      value: loading ? "..." : totalVehicles,
-      description: "Registered fleet",
-      icon: <Truck size={22} />,
-    },
-    {
-      title: "Active Vehicles",
-      value: loading ? "..." : activeVehicles,
-      description: "Currently operational",
-      icon: <Truck size={22} />,
-    },
-    {
-      title: "Scheduled",
-      value: loading ? "..." : scheduledMaintenance,
-      description: "Upcoming maintenance",
-      icon: <CalendarCheck size={22} />,
-    },
-    {
-      title: "Service Providers",
-      value: loading ? "..." : providers.length,
-      description: "Registered providers",
-      icon: <Building2 size={22} />,
-    },
-  ];
+  const overdueMaintenance = schedules.filter(
+    (schedule) =>
+      String(schedule.status || "").toUpperCase() === "OVERDUE"
+  );
 
-  /* -----------------------------
-     Helper functions
-  ----------------------------- */
+  /* ================= HELPERS ================= */
 
   function getVehicle(vehicleId) {
     return vehicles.find(
@@ -174,29 +165,122 @@ function Dashboard() {
     return "";
   }
 
+  function getStatusClass(statusValue) {
+    const value = String(statusValue || "").toLowerCase();
+
+    if (value === "upcoming") return "upcoming";
+    if (value === "due") return "due";
+    if (value === "overdue") return "overdue";
+
+    return "";
+  }
+
+  function getStatusLabel(statusValue) {
+    const value = String(statusValue || "").toUpperCase();
+
+    if (value === "UPCOMING") return "Upcoming";
+    if (value === "DUE") return "Due";
+    if (value === "OVERDUE") return "Overdue";
+
+    return value || "-";
+  }
+
+  /* ================= DASHBOARD CARDS ================= */
+
+  const stats = [
+    {
+      title: "Total Vehicles",
+      value: loading ? "..." : totalVehicles,
+      description: "Registered fleet",
+      icon: <Truck size={22} />,
+    },
+    {
+      title: "Active Vehicles",
+      value: loading ? "..." : activeVehicles,
+      description: "Currently operational",
+      icon: <Truck size={22} />,
+    },
+    {
+      title: "Upcoming Maintenance",
+      value: loading ? "..." : upcomingMaintenance.length,
+      description: "Scheduled for future dates",
+      icon: <CalendarCheck size={22} />,
+    },
+    {
+      title: "Overdue Maintenance",
+      value: loading ? "..." : overdueMaintenance.length,
+      description: "Requires attention",
+      icon: <AlertTriangle size={22} />,
+    },
+    {
+      title: "Service Providers",
+      value: loading ? "..." : providers.length,
+      description: "Registered providers",
+      icon: <Building2 size={22} />,
+    },
+    {
+      title: "Maintenance Records",
+      value: loading ? "..." : records.length,
+      description: "Completed activities",
+      icon: <ClipboardList size={22} />,
+    },
+  ];
+
+  /* ================= MAINTENANCE DISPLAY ================= */
+
+  const maintenanceList = [...schedules]
+    .filter((schedule) => {
+      const status = String(schedule.status || "").toUpperCase();
+
+      return (
+        status === "OVERDUE" ||
+        status === "DUE" ||
+        status === "UPCOMING"
+      );
+    })
+    .sort((a, b) => {
+      const priority = {
+        OVERDUE: 1,
+        DUE: 2,
+        UPCOMING: 3,
+      };
+
+      const statusA = String(a.status || "").toUpperCase();
+      const statusB = String(b.status || "").toUpperCase();
+
+      if (priority[statusA] !== priority[statusB]) {
+        return priority[statusA] - priority[statusB];
+      }
+
+      return (
+        new Date(a.scheduled_date) -
+        new Date(b.scheduled_date)
+      );
+    })
+    .slice(0, 6);
+
   return (
     <div className="dashboard-page">
 
-      {/* ---------------- HEADER ---------------- */}
+      {/* ================= HEADER ================= */}
 
       <div className="dashboard-header">
         <div>
-          <p className="dashboard-eyebrow">FLEET OVERVIEW</p>
+          <p className="dashboard-eyebrow">
+            FLEET OVERVIEW
+          </p>
 
-          <h1>Good morning, Mubarak 👋</h1>
+          <h1>
+            Good morning, Mubarak 👋
+          </h1>
 
           <p className="dashboard-description">
             Here's what's happening with your fleet today.
           </p>
         </div>
-
-        <button className="dashboard-primary-button">
-          <Plus size={18} />
-          Schedule Maintenance
-        </button>
       </div>
 
-      {/* ---------------- ERROR ---------------- */}
+      {/* ================= ERROR ================= */}
 
       {error && (
         <div
@@ -213,12 +297,14 @@ function Dashboard() {
         </div>
       )}
 
-      {/* ---------------- STATISTICS ---------------- */}
+      {/* ================= STATISTICS ================= */}
 
       <div className="dashboard-stats">
         {stats.map((stat) => (
-          <div className="stat-card" key={stat.title}>
-
+          <div
+            className="stat-card"
+            key={stat.title}
+          >
             <div className="stat-card-top">
               <div className="stat-icon">
                 {stat.icon}
@@ -238,116 +324,82 @@ function Dashboard() {
             <div className="stat-description">
               {stat.description}
             </div>
-
           </div>
         ))}
       </div>
 
-      {/* ---------------- MAIN GRID ---------------- */}
+      {/* ================= MAINTENANCE STATUS ================= */}
 
       <div className="dashboard-grid">
-
-        {/* UPCOMING MAINTENANCE */}
 
         <section className="dashboard-card maintenance-card">
 
           <div className="card-header">
             <div>
-              <h2>Upcoming Maintenance</h2>
-              <p>Scheduled maintenance activities</p>
+              <h2>Maintenance Overview</h2>
+              <p>
+                Current maintenance schedule status
+              </p>
             </div>
-
-            <button className="view-button">
-              View all
-              <ArrowUpRight size={16} />
-            </button>
           </div>
 
-          <div className="maintenance-table">
+          <div className="maintenance-status-summary">
 
-            <div className="table-row table-header">
-              <span>Vehicle</span>
-              <span>Service</span>
-              <span>Date</span>
-              <span>Priority</span>
+            <div className="status-summary-item">
+              <div className="status-summary-icon upcoming">
+                <Clock size={19} />
+              </div>
+
+              <div>
+                <strong>Upcoming</strong>
+                <span>
+                  Future maintenance
+                </span>
+              </div>
+
+              <b>
+                {loading ? "..." : upcomingMaintenance.length}
+              </b>
             </div>
 
-            {loading ? (
-              <div
-                className="table-row"
-                style={{ justifyContent: "center" }}
-              >
-                Loading maintenance...
+            <div className="status-summary-item">
+              <div className="status-summary-icon due">
+                <CalendarCheck size={19} />
               </div>
-            ) : schedules.length === 0 ? (
-              <div
-                className="table-row"
-                style={{ justifyContent: "center" }}
-              >
-                No upcoming maintenance scheduled.
+
+              <div>
+                <strong>Due Today</strong>
+                <span>
+                  Requires today's service
+                </span>
               </div>
-            ) : (
-              schedules
-                .filter(
-                  (schedule) =>
-                    String(schedule.status || "").toLowerCase() ===
-                    "scheduled"
-                )
-                .slice(0, 5)
-                .map((schedule) => {
-                  const vehicle = getVehicle(schedule.vehicle_id);
 
-                  return (
-                    <div
-                      className="table-row"
-                      key={schedule.id}
-                    >
+              <b>
+                {loading ? "..." : dueMaintenance.length}
+              </b>
+            </div>
 
-                      <div className="vehicle-info">
-                        <div className="vehicle-icon">
-                          <Truck size={18} />
-                        </div>
+            <div className="status-summary-item">
+              <div className="status-summary-icon overdue">
+                <AlertTriangle size={19} />
+              </div>
 
-                        <div>
-                          <strong>
-                            {vehicle?.registration_number ||
-                              `Vehicle #${schedule.vehicle_id}`}
-                          </strong>
+              <div>
+                <strong>Overdue</strong>
+                <span>
+                  Maintenance date passed
+                </span>
+              </div>
 
-                          <small>
-                            {vehicle?.make && vehicle?.model
-                              ? `${vehicle.make} ${vehicle.model}`
-                              : vehicle?.vehicle_type || "Fleet Vehicle"}
-                          </small>
-                        </div>
-                      </div>
-
-                      <span>
-                        {schedule.maintenance_type ||
-                          "Maintenance Service"}
-                      </span>
-
-                      <span>
-                        {formatDate(schedule.scheduled_date)}
-                      </span>
-
-                      <span
-                        className={`priority ${getPriorityClass(
-                          schedule.priority
-                        )}`}
-                      >
-                        {schedule.priority || "-"}
-                      </span>
-
-                    </div>
-                  );
-                })
-            )}
+              <b>
+                {loading ? "..." : overdueMaintenance.length}
+              </b>
+            </div>
 
           </div>
         </section>
 
-        {/* ---------------- FLEET STATUS ---------------- */}
+        {/* ================= FLEET STATUS ================= */}
 
         <section className="dashboard-card">
 
@@ -365,10 +417,14 @@ function Dashboard() {
 
               <div>
                 <strong>Active</strong>
-                <span>Vehicles operating normally</span>
+                <span>
+                  Vehicles operating normally
+                </span>
               </div>
 
-              <b>{loading ? "..." : activeVehicles}</b>
+              <b>
+                {loading ? "..." : activeVehicles}
+              </b>
             </div>
 
             <div className="status-item">
@@ -376,10 +432,14 @@ function Dashboard() {
 
               <div>
                 <strong>In Service</strong>
-                <span>Currently under maintenance</span>
+                <span>
+                  Currently under maintenance
+                </span>
               </div>
 
-              <b>{loading ? "..." : inServiceVehicles}</b>
+              <b>
+                {loading ? "..." : inServiceVehicles}
+              </b>
             </div>
 
             <div className="status-item">
@@ -387,30 +447,142 @@ function Dashboard() {
 
               <div>
                 <strong>Inactive</strong>
-                <span>Not currently operational</span>
+                <span>
+                  Not currently operational
+                </span>
               </div>
 
-              <b>{loading ? "..." : inactiveVehicles}</b>
+              <b>
+                {loading ? "..." : inactiveVehicles}
+              </b>
             </div>
 
           </div>
-
         </section>
 
       </div>
 
-      {/* ---------------- BOTTOM GRID ---------------- */}
+      {/* ================= MAINTENANCE TABLE ================= */}
+
+      <section className="dashboard-card maintenance-card">
+
+        <div className="card-header">
+          <div>
+            <h2>Maintenance Schedule</h2>
+            <p>
+              Upcoming, due and overdue maintenance
+            </p>
+          </div>
+        </div>
+
+        <div className="maintenance-table">
+
+          <div className="table-row table-header">
+            <span>Vehicle</span>
+            <span>Service</span>
+            <span>Date</span>
+            <span>Status</span>
+            <span>Priority</span>
+          </div>
+
+          {loading ? (
+            <div
+              className="table-row"
+              style={{ justifyContent: "center" }}
+            >
+              Loading maintenance...
+            </div>
+          ) : maintenanceList.length === 0 ? (
+            <div
+              className="table-row"
+              style={{ justifyContent: "center" }}
+            >
+              No maintenance schedules available.
+            </div>
+          ) : (
+            maintenanceList.map((schedule) => {
+              const vehicle = getVehicle(
+                schedule.vehicle_id
+              );
+
+              return (
+                <div
+                  className="table-row"
+                  key={schedule.id}
+                >
+
+                  <div className="vehicle-info">
+
+                    <div className="vehicle-icon">
+                      <Truck size={18} />
+                    </div>
+
+                    <div>
+                      <strong>
+                        {vehicle?.registration_number ||
+                          `Vehicle #${schedule.vehicle_id}`}
+                      </strong>
+
+                      <small>
+                        {vehicle?.make &&
+                        vehicle?.model
+                          ? `${vehicle.make} ${vehicle.model}`
+                          : vehicle?.vehicle_type ||
+                            "Fleet Vehicle"}
+                      </small>
+                    </div>
+
+                  </div>
+
+                  <span>
+                    {schedule.maintenance_type ||
+                      "Maintenance Service"}
+                  </span>
+
+                  <span>
+                    {formatDate(
+                      schedule.scheduled_date
+                    )}
+                  </span>
+
+                  <span
+                    className={`maintenance-status ${getStatusClass(
+                      schedule.status
+                    )}`}
+                  >
+                    {getStatusLabel(
+                      schedule.status
+                    )}
+                  </span>
+
+                  <span
+                    className={`priority ${getPriorityClass(
+                      schedule.priority
+                    )}`}
+                  >
+                    {schedule.priority || "-"}
+                  </span>
+
+                </div>
+              );
+            })
+          )}
+
+        </div>
+      </section>
+
+      {/* ================= ALERTS + QUICK INFORMATION ================= */}
 
       <div className="dashboard-grid bottom-grid">
-
-        {/* MAINTENANCE ALERTS */}
 
         <section className="dashboard-card">
 
           <div className="card-header">
             <div>
               <h2>Maintenance Alerts</h2>
-              <p>Items requiring attention</p>
+              <p>
+                Items requiring attention
+              </p>
             </div>
           </div>
 
@@ -422,17 +594,27 @@ function Dashboard() {
 
             <div>
               <strong>
-                {scheduledMaintenance > 0
-                  ? `${scheduledMaintenance} scheduled maintenance ${
-                      scheduledMaintenance === 1 ? "activity" : "activities"
+                {overdueMaintenance.length > 0
+                  ? `${overdueMaintenance.length} overdue ${
+                      overdueMaintenance.length === 1
+                        ? "maintenance activity"
+                        : "maintenance activities"
                     }`
-                  : "No critical alerts"}
+                  : dueMaintenance.length > 0
+                    ? `${dueMaintenance.length} maintenance ${
+                        dueMaintenance.length === 1
+                          ? "activity is"
+                          : "activities are"
+                      } due today`
+                    : "No critical maintenance alerts"}
               </strong>
 
               <p>
-                {scheduledMaintenance > 0
-                  ? "Review upcoming maintenance activities."
-                  : "Your fleet currently has no critical maintenance issues."}
+                {overdueMaintenance.length > 0
+                  ? "Review overdue maintenance and create the corresponding maintenance records after completion."
+                  : dueMaintenance.length > 0
+                    ? "Maintenance activities are scheduled for today."
+                    : "Your fleet currently has no overdue or due maintenance."}
               </p>
             </div>
 
@@ -440,42 +622,58 @@ function Dashboard() {
 
         </section>
 
-        {/* QUICK ACTIONS */}
-
         <section className="dashboard-card">
 
           <div className="card-header">
             <div>
-              <h2>Quick Actions</h2>
-              <p>Common fleet operations</p>
+              <h2>System Summary</h2>
+              <p>
+                Current fleet management information
+              </p>
             </div>
           </div>
 
           <div className="quick-actions">
 
-            <button>
+            <div>
               <Truck size={19} />
-              <span>Add Vehicle</span>
-              <ArrowUpRight size={16} />
-            </button>
+              <span>
+                Vehicles
+              </span>
+              <strong>
+                {loading ? "..." : totalVehicles}
+              </strong>
+            </div>
 
-            <button>
-              <CalendarCheck size={19} />
-              <span>Schedule Maintenance</span>
-              <ArrowUpRight size={16} />
-            </button>
-
-            <button>
-              <Wrench size={19} />
-              <span>Add Maintenance Record</span>
-              <ArrowUpRight size={16} />
-            </button>
-
-            <button>
+            <div>
               <Building2 size={19} />
-              <span>Add Service Provider</span>
-              <ArrowUpRight size={16} />
-            </button>
+              <span>
+                Service Providers
+              </span>
+              <strong>
+                {loading ? "..." : providers.length}
+              </strong>
+            </div>
+
+            <div>
+              <Wrench size={19} />
+              <span>
+                Maintenance Records
+              </span>
+              <strong>
+                {loading ? "..." : records.length}
+              </strong>
+            </div>
+
+            <div>
+              <ClipboardList size={19} />
+              <span>
+                Total Schedules
+              </span>
+              <strong>
+                {loading ? "..." : schedules.length}
+              </strong>
+            </div>
 
           </div>
 
