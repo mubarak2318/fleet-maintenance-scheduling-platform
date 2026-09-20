@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -16,6 +16,23 @@ class MaintenanceScheduleService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = MaintenanceScheduleRepository(db)
+
+    @staticmethod
+    def calculate_status(scheduled_date: date) -> str:
+        today = date.today()
+
+        if scheduled_date > today:
+            return "UPCOMING"
+
+        if scheduled_date == today:
+            return "DUE"
+
+        return "OVERDUE"
+
+    def _update_status(self, schedule: MaintenanceSchedule) -> None:
+        schedule.status = self.calculate_status(
+            schedule.scheduled_date
+        )
 
     def create_schedule(
         self,
@@ -71,7 +88,16 @@ class MaintenanceScheduleService:
                 )
 
         schedule = MaintenanceSchedule(
-            **schedule_data.model_dump(),
+            vehicle_id=schedule_data.vehicle_id,
+            assigned_to=schedule_data.assigned_to,
+            service_provider_id=schedule_data.service_provider_id,
+            maintenance_type=schedule_data.maintenance_type,
+            description=schedule_data.description,
+            scheduled_date=schedule_data.scheduled_date,
+            priority=schedule_data.priority,
+            status=self.calculate_status(
+                schedule_data.scheduled_date
+            ),
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
@@ -83,7 +109,27 @@ class MaintenanceScheduleService:
         return schedule
 
     def get_all_schedules(self):
-        return self.repository.get_all()
+        schedules = self.repository.get_all()
+
+        changed = False
+
+        for schedule in schedules:
+            calculated_status = self.calculate_status(
+                schedule.scheduled_date
+            )
+
+            if schedule.status != calculated_status:
+                schedule.status = calculated_status
+                schedule.updated_at = datetime.now(timezone.utc)
+                changed = True
+
+        if changed:
+            self.db.commit()
+
+            for schedule in schedules:
+                self.db.refresh(schedule)
+
+        return schedules
 
     def get_schedule(self, schedule_id: int):
         schedule = self.repository.get_by_id(schedule_id)
@@ -93,6 +139,17 @@ class MaintenanceScheduleService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Maintenance schedule not found.",
             )
+
+        calculated_status = self.calculate_status(
+            schedule.scheduled_date
+        )
+
+        if schedule.status != calculated_status:
+            schedule.status = calculated_status
+            schedule.updated_at = datetime.now(timezone.utc)
+
+            self.db.commit()
+            self.db.refresh(schedule)
 
         return schedule
 
@@ -163,8 +220,16 @@ class MaintenanceScheduleService:
                         detail="Service provider not found.",
                     )
 
+        # Status is calculated by the system.
+        # Never allow a manually supplied status to override it.
+        update_data.pop("status", None)
+
         for field, value in update_data.items():
             setattr(schedule, field, value)
+
+        schedule.status = self.calculate_status(
+            schedule.scheduled_date
+        )
 
         schedule.updated_at = datetime.now(timezone.utc)
 
